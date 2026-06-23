@@ -112,10 +112,15 @@ Copiá el **ID** de la hoja (lo que va entre `/d/` y `/edit` en la URL) y pegalo
 ## Paso 5 — Probar
 
 1. En **Configurar**, dejá `video_url` con uno de prueba:
-   - `https://www.youtube.com/watch?v=u109SuVRLuo` (Extra de Medellín)
-   - `https://www.youtube.com/watch?v=UU789gTjfkQ` (Cafeterito Noche)
-   - `https://www.youtube.com/watch?v=MmvWi4vVB6M` (Pick 3 y Pick 4 — devuelve 2 sorteos)
+   - `https://www.youtube.com/watch?v=u109SuVRLuo` (Extra de Medellín — 25+ premios)
+   - `https://www.youtube.com/watch?v=9KNTZNg4Iew` (Paisita/Quinta/Suertudo — multi-juego)
+   - `https://www.youtube.com/watch?v=CAH5PKTRNXw` (Cundinamarca — serie real explícita)
+   - `https://www.youtube.com/watch?v=8cpPapXy7yI` (Astro Luna — número + signo zodiacal, sin serie)
+   - `https://www.youtube.com/watch?v=SH2wEzIYQgE` (Caribeña Noche — mayor + la quinta)
+   - `https://www.youtube.com/watch?v=UU789gTjfkQ` (Cafeterito — **sin subtítulos**, caso de degradación)
 2. **Execute Workflow**.
+
+> Las salidas reales y verificadas de varios de estos están en [`../examples/salidas_verificadas.json`](../examples/salidas_verificadas.json).
 3. Revisá la salida de cada nodo: en **Preparar Fuentes** vas a ver el `transcript`; en **Agente Auditor**, el JSON final.
 
 ---

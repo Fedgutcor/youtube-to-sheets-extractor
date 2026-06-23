@@ -80,3 +80,24 @@ yt-dlp --no-simulate --write-subs --write-auto-subs --sub-langs "es.*" URL
 **Solución:** usar un modelo capaz — `llama-3.3-70b` (Groq) o, en local, mínimo `qwen2.5:7b`.
 
 > **El gotcha más importante:** `confianza: 100` **no significa "correcto"**. Significa "el modelo está seguro". Un modelo malo está seguro de cosas falsas. Verificá la salida contra la fuente, siempre.
+
+---
+
+## 7. El modelo grande también miente (convincentemente)
+
+**Síntoma:** con Groq `llama-3.3-70b` —un modelo bueno— procesamos tres videos nuevos. El JSON se veía impecable. Al **verificar a mano contra la transcripción**, dos de tres tenían errores:
+
+- **Astro Luna:** puso `serie: "8159"`... pero `8159` era el **número de sorteo** ("sorteo 8159 de Super Astroluna"), no una serie. Y **se comió el signo zodiacal** ("signo Aries"), que es parte del resultado.
+- **Caribeña:** `serie: "7748"` — otra vez, el número de sorteo ("sorteo 7748"), no una serie.
+
+**El patrón:** cuando NO hay serie real en el audio, el modelo **inventa una tomando el número de "sorteo NNNN"**. Es plausible, es del mismo video, y suena bien. Pero es falso.
+
+**Causa:** el prompt no distinguía "número de sorteo" (ID del evento) de "serie" (parte del billete). Y no contemplaba el signo del Astro.
+
+**Solución (prompt):** dos reglas nuevas en el extractor y el auditor —
+- *"El número de sorteo (`sorteo 8159`) es el ID del evento, NO la serie. Si no se dice 'de la serie N', serie = null."*
+- *"En Astro, el signo zodiacal va en observaciones."*
+
+Tras el fix: `serie: null` correcto en ambos, y `observaciones: "Signo: Aries"` capturado.
+
+> **La lección completa:** esto **no** lo atrapás mirando el JSON —se ve perfecto—. Solo aparece al contrastar contra la fuente. Un modelo grande no te salva de verificar; solo hace los errores más convincentes. Esto es, literalmente, por qué existe el agente auditor. **Marco Aurelio no confía en que el cortesano sea elocuente; confía en lo que puede verificar.**

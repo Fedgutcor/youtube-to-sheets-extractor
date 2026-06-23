@@ -1,0 +1,69 @@
+{
+  "_comentario": "Salidas REALES del workflow (Groq llama-3.3-70b), verificadas a mano contra la transcripcion de cada video. Incluye 3 tipos de juego: loteria tradicional, Astro (numero + signo), y un sorteo con modalidad secundaria (la quinta). Estos ejemplos motivaron el fix 'serie vs numero de sorteo' y la captura del signo zodiacal — ver docs/GOTCHAS.md #7.",
+  "ejemplos": [
+    {
+      "video": "https://www.youtube.com/watch?v=CAH5PKTRNXw",
+      "caso": "Loteria de Cundinamarca (serie real, explicita)",
+      "salida": {
+        "sorteos": [
+          {
+            "loteria": "Lotería de Cundinamarca",
+            "fecha": "2026-06-22",
+            "numero_ganador": "0623",
+            "serie": "204",
+            "premio": "Premio Mayor",
+            "pais": "Colombia",
+            "observaciones": "Sorteo 4808",
+            "confianza": 90
+          }
+        ]
+      }
+    },
+    {
+      "video": "https://www.youtube.com/watch?v=8cpPapXy7yI",
+      "caso": "Astro Luna (numero + signo zodiacal, sin serie)",
+      "salida": {
+        "sorteos": [
+          {
+            "loteria": "Super Astro Luna",
+            "fecha": "22 de Junio de 2026",
+            "numero_ganador": "4700",
+            "serie": null,
+            "premio": null,
+            "pais": "Colombia",
+            "observaciones": "Signo: Aries",
+            "confianza": 60
+          }
+        ]
+      }
+    },
+    {
+      "video": "https://www.youtube.com/watch?v=SH2wEzIYQgE",
+      "caso": "Caribena Noche (premio mayor + la quinta, sin serie)",
+      "salida": {
+        "sorteos": [
+          {
+            "loteria": "Caribeña Noche",
+            "fecha": "22 de junio 2026",
+            "numero_ganador": "1383",
+            "serie": null,
+            "premio": "Premio Mayor",
+            "pais": "Colombia",
+            "observaciones": null,
+            "confianza": 90
+          },
+          {
+            "loteria": "Caribeña - La Quinta",
+            "fecha": "22 de junio 2026",
+            "numero_ganador": "213832",
+            "serie": null,
+            "premio": null,
+            "pais": "Colombia",
+            "observaciones": "Modalidad secundaria 'la quinta'",
+            "confianza": 90
+          }
+        ]
+      }
+    }
+  ]
+}
