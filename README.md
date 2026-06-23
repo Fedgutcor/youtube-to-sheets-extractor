@@ -1,19 +1,26 @@
-# Extractor de Resultados de Loterías con n8n + IA
+# Extractor de YouTube a Hojas de Datos (n8n + IA)
 
-> Un workflow de **n8n** que toma un video de YouTube de resultados de chance/lotería colombiana, le saca la transcripción, y usa **dos agentes de IA** (un extractor y un auditor) para devolver los números ganadores como datos estructurados, listos para una hoja de cálculo.
+> Convierte **cualquier video de YouTube** en **datos estructurados** dentro de una hoja de cálculo. Toma la transcripción del video y la pasa por **dos agentes de IA** —un extractor y un auditor— que devuelven la información como filas listas para Google Sheets.
 
-Este repositorio es el material de una clase sobre **automatización con n8n e IA**. No es solo el resultado final: documenta **el proceso completo** —incluidos los errores y cómo los descubrimos— para que se pueda reproducir y aprender paso a paso.
+Este repositorio es, a la vez, una **plantilla reutilizable** y el **material de una clase** sobre automatización con n8n e IA. No documenta solo el resultado: documenta **el proceso completo** —incluidos los errores y cómo los descubrimos— para que se pueda reproducir y aprender paso a paso.
+
+El ejemplo incluido extrae **resultados de loterías colombianas**, pero el patrón sirve para cualquier dato que viva en un video: precios, anuncios, datos deportivos, recetas, especificaciones, lo que sea.
 
 ---
 
-## Qué problema resuelve
+## Cómo funciona (el patrón general)
 
-Los canales de YouTube publican los resultados de loterías en video. El número ganador casi nunca está escrito: lo **dice la presentadora**, dígito por dígito ("Siete. Tres. Cero. Ocho. De la serie 711"). No hay una API que te dé ese dato. Hay que:
+```
+YouTube  →  Transcripción  →  Agente Extractor  →  Agente Auditor  →  Hoja de cálculo
+ (URL)       (yt-dlp)          (LLM + esquema)      (LLM verifica)      (Google Sheets)
+```
 
-1. **Obtener lo que se dijo** → transcripción automática del video.
-2. **Entender los números hablados y dispersos** → un LLM que normaliza "Siete Tres Cero Ocho" a `7308`.
-3. **No confiar a ciegas** → un segundo agente que verifica el resultado contra la fuente.
-4. **Guardarlo estructurado** → una fila por premio en una hoja de cálculo.
+1. **Transcripción** — `yt-dlp` baja los subtítulos automáticos del video (lo que se dijo).
+2. **Extractor** — un LLM lee la transcripción y extrae los datos según un **esquema JSON** que vos definís.
+3. **Auditor** — un segundo LLM verifica esos datos contra la fuente y corrige errores (no confiamos en la primera respuesta).
+4. **Hoja** — cada registro se agrega como una fila en Google Sheets.
+
+Lo que cambia entre un caso de uso y otro es **el prompt y el esquema** (ver [Adaptarlo a otro caso](#adaptarlo-a-otro-caso-de-uso)). La plomería es la misma.
 
 ---
 
@@ -23,65 +30,70 @@ Tenés un poder enorme a tu disposición. Lo que define el resultado no es el po
 
 ### 🏛️ Marco Aurelio — el que dirige
 
-Marco Aurelio gobernó el imperio más grande de su tiempo con **disciplina, juicio y verificación**. No actuaba por impulso; contrastaba, dudaba, confirmaba antes de decidir. Su poder estaba **al servicio de la realidad**, no de su ego.
+Marco Aurelio gobernó el imperio más grande de su tiempo con **disciplina, juicio y verificación**. No actuaba por impulso; contrastaba, dudaba, confirmaba antes de decidir.
 
-> *"Si alguien puede demostrarme que algo que pienso o hago no es correcto, lo cambiaré con gusto. Porque busco la verdad, y la verdad nunca le hizo daño a nadie."* — Marco Aurelio, *Meditaciones*
+> *"Si alguien puede demostrarme que algo que pienso o hago no es correcto, lo cambiaré con gusto. Porque busco la verdad."* — Marco Aurelio, *Meditaciones*
 
-**Trabajar con IA al estilo Marco Aurelio** es lo que hicimos en este proyecto:
-- La IA nos devolvió `confianza: 100` sobre un número **equivocado**. No le creímos. Lo verificamos contra la transcripción real y descubrimos que era basura.
-- Encontramos un bug (`--print` apagaba la descarga de subtítulos) **probando**, no asumiendo.
-- Solo confiamos en el resultado de Groq **después** de contrastarlo con la fuente.
+**Trabajar con IA al estilo Marco Aurelio** es lo que hicimos acá: la IA devolvió `confianza: 100` sobre números **equivocados**, y no le creímos — lo verificamos contra la transcripción. Encontramos bugs **probando**, no asumiendo.
 
 > **TÚ diriges, la IA ejecuta.** La máquina propone; el juicio es tuyo.
 
 ### 🎭 Cómodo — el que se deja gobernar por la herramienta
 
-Cómodo, hijo de Marco Aurelio, **heredó exactamente el mismo poder** y lo hundió. Gobernó por vanidad y espectáculo, creyó su propio mito, confió en la apariencia y no en los hechos. Mismo imperio, disciplina opuesta.
+Cómodo, hijo de Marco Aurelio, **heredó el mismo poder** y lo hundió por vanidad: confió en la apariencia, no en los hechos.
 
-**Trabajar con IA al estilo Cómodo** es el anti-patrón:
-- Importás el workflow, lo corrés una vez, ves un JSON que *suena* convincente, y lo das por bueno.
-- Confundís **fluidez con verdad**. Si el modelo dice `confianza: 100`, le creés.
-- Despliegas a producción sin verificar. (El equivalente romano: Nerón tocando la lira mientras Roma ardía.)
+**Trabajar con IA al estilo Cómodo:** importás el workflow, lo corrés una vez, ves un JSON convincente y lo das por bueno. Confundís **fluidez con verdad**. Si el modelo dice `confianza: 100`, le creés.
 
-El modelo de 3B de este proyecto es el cortesano de Cómodo: te dice con total seguridad un número que se inventó.
-
-> **La lección de la clase:** la IA te da un imperio. Marco Aurelio lo gobierna; Cómodo lo pierde. La diferencia es **verificar**.
+> **La lección:** la IA te da un imperio. Marco Aurelio lo gobierna; Cómodo lo pierde. La diferencia es **verificar**. Por eso este proyecto tiene un agente auditor.
 
 ---
 
 ## Las herramientas y qué hace cada una
 
-| Herramienta | Rol en el proyecto |
+| Herramienta | Rol |
 |---|---|
-| **n8n** | El orquestador. Conecta todos los pasos en un flujo visual (nodos). Self-hosted vía Docker. |
-| **yt-dlp** | Descarga la **transcripción** (subtítulos auto-generados) y la metadata del video de YouTube. Corre dentro del contenedor de n8n. |
-| **Ollama** | Servidor de modelos de IA **locales** (gratis, privados). En la clase es "la opción local". Requiere modelos de 7B+ para esta tarea. |
-| **Groq** | API de inferencia **en la nube**, muy rápida. Modelo `llama-3.3-70b`. Es el modelo **principal** del workflow: 35 registros correctos en ~13s. |
-| **Google Gemini** | Tercera opción de modelo (alternativa/fallback). |
-| **Structured Output Parser** (n8n) | Obliga a la IA a devolver JSON con la forma exacta del esquema. |
-| **Google Sheets** | El destino: una fila por premio extraído. |
+| **n8n** | El orquestador. Conecta todos los pasos en un flujo visual. Self-hosted vía Docker. |
+| **yt-dlp** | Descarga la transcripción (subtítulos) y la metadata del video. Corre dentro del contenedor de n8n. |
+| **Groq** | Modelo de IA en la nube (`llama-3.3-70b`), muy rápido. Es el modelo **principal**. |
+| **Ollama** | Modelos de IA **locales** (gratis, privados). Alternativa. Requiere modelos de 7B+. |
+| **Google Gemini** | Tercera opción de modelo. |
+| **Structured Output Parser** (n8n) | Obliga a la IA a devolver JSON con la forma exacta de tu esquema. |
+| **Google Sheets** | El destino: una fila por registro extraído. |
 
-### El flujo
+---
 
-```
-Disparador → Configurar → yt-dlp → Preparar Fuentes → Agente Extractor → Agente Auditor → Expandir → Google Sheets
-                                                              │                  │
-                                                         Groq / Ollama / Gemini  +  Esquema JSON
-```
+## El ejemplo incluido: resultados de loterías
 
-- **Agente Extractor**: lee título + descripción + transcripción y extrae los sorteos.
-- **Agente Auditor** (segunda pasada): verifica cada número contra la fuente, corrige errores, ajusta la confianza. *Este es el Marco Aurelio del pipeline.*
+Los canales de YouTube publican resultados de lotería en video. El número ganador casi nunca está escrito: lo **dice la presentadora**, dígito por dígito ("Siete. Tres. Cero. Ocho. De la serie 711"). No hay API que dé ese dato. El LLM normaliza esa voz dispersa a `7308`, serie `711`.
+
+Es un caso ideal para enseñar porque combina: datos sucios (voz → dígitos), múltiples registros por video, y casos ambiguos donde **hay que bajar la confianza en vez de inventar**.
+
+Videos de prueba y salidas verificadas: ver [`docs/GUIA_CLASE.md`](docs/GUIA_CLASE.md) y [`examples/`](examples/).
 
 ---
 
 ## Inicio rápido
 
-1. **Tener n8n self-hosted** con `yt-dlp` instalado → ver [`docker/Dockerfile`](docker/Dockerfile).
+1. **n8n self-hosted** con `yt-dlp` instalado → [`docker/Dockerfile`](docker/Dockerfile).
 2. **Importar** [`workflow/loterias_v1.json`](workflow/loterias_v1.json) en n8n.
-3. **Configurar credenciales** (Groq, Google Sheets) → ver [`docs/GUIA_CLASE.md`](docs/GUIA_CLASE.md).
+3. **Conectar credenciales** (Groq + Google Sheets OAuth) → [`docs/GUIA_CLASE.md`](docs/GUIA_CLASE.md#paso-3--configurar-credenciales).
 4. **Ejecutar** con una URL de prueba.
 
 Para **ver el diagrama sin n8n**, abrí [`visor_workflow.html`](visor_workflow.html) en el navegador.
+
+> **Sobre las credenciales:** hay **dos capas** que no se mezclan. El *ID de la hoja* (qué recurso) ya está cableado en el nodo Configurar. El *OAuth* (permiso para escribir) se conecta a mano en n8n, con tu cuenta de Google. n8n no puede escribir en la hoja hasta que conectes ese OAuth. Detalle en la guía.
+
+---
+
+## Adaptarlo a otro caso de uso
+
+Para extraer **otra cosa** (no loterías), cambiás tres piezas:
+
+1. **El esquema** (nodo *Esquema de Salida*) — definí los campos que querés extraer.
+2. **Los prompts** (nodos *Agente Extractor* y *Agente Auditor*) — describí qué buscar y cómo verificarlo.
+3. **Los encabezados de la hoja** y el mapeo del nodo *Expandir Sorteos*.
+
+El resto —descarga de transcripción, los dos agentes, el guardado— no se toca. Eso es lo que lo hace un **extractor general**.
 
 ---
 
@@ -89,12 +101,13 @@ Para **ver el diagrama sin n8n**, abrí [`visor_workflow.html`](visor_workflow.h
 
 | Documento | Para qué |
 |---|---|
-| [`docs/TUTORIAL.md`](docs/TUTORIAL.md) | **Paso a paso del ejercicio** para desarrollar en vivo con los estudiantes. Empezá acá. |
+| [`docs/TUTORIAL.md`](docs/TUTORIAL.md) | **Paso a paso del ejercicio** para desarrollar en vivo. Empezá acá. |
 | [`docs/GUIA_CLASE.md`](docs/GUIA_CLASE.md) | Setup detallado: contenedor, credenciales, prueba. |
-| [`docs/GOTCHAS.md`](docs/GOTCHAS.md) | Los 4 bugs/trampas que encontramos y cómo se resuelven. La parte más valiosa. |
+| [`docs/GOTCHAS.md`](docs/GOTCHAS.md) | Los bugs que encontramos y cómo se resuelven. La parte más valiosa. |
+| [`docs/PROMPT_NOTEBOOKLM_PPT.md`](docs/PROMPT_NOTEBOOKLM_PPT.md) | Prompt para generar la presentación con NotebookLM. |
 
 ---
 
 ## Aviso
 
-Material educativo. Procesa contenido **público** de YouTube. Respetá los términos de servicio de YouTube y la legislación local sobre datos de juegos de azar.
+Material educativo. Procesa contenido **público** de YouTube. Respetá los términos de servicio de YouTube y la legislación local aplicable.
