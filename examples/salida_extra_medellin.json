@@ -1,0 +1,45 @@
+{
+  "_comentario": "Salida REAL del Agente Auditor con Groq llama-3.3-70b sobre el video del Extra de Medellín (u109SuVRLuo). 35 registros, uno por premio. Mostramos los primeros para ilustrar; notar la calibración: confianza 90 donde el número está completo, 20 (y numero_ganador null) donde el audio no lo capturó.",
+  "sorteos": [
+    {
+      "loteria": "El Extra de la Medellín",
+      "fecha": "20 de junio de 2026",
+      "numero_ganador": "7308",
+      "serie": "711",
+      "premio": "Primer seco de 500 millones de pesos",
+      "pais": "Colombia",
+      "observaciones": null,
+      "confianza": 90
+    },
+    {
+      "loteria": "El Extra de la Medellín",
+      "fecha": "20 de junio de 2026",
+      "numero_ganador": "62",
+      "serie": "174",
+      "premio": "Superseco de 2000 millones de pesos",
+      "pais": "Colombia",
+      "observaciones": null,
+      "confianza": 90
+    },
+    {
+      "loteria": "El Extra de la Medellín",
+      "fecha": "20 de junio de 2026",
+      "numero_ganador": "3",
+      "serie": "554",
+      "premio": "Premio mayor de 25.000 millones de pesos",
+      "pais": "Colombia",
+      "observaciones": null,
+      "confianza": 90
+    },
+    {
+      "loteria": "El Extra de la Medellín",
+      "fecha": "20 de junio de 2026",
+      "numero_ganador": null,
+      "serie": "332",
+      "premio": "Seco de 50 millones de pesos",
+      "pais": "Colombia",
+      "observaciones": "Número no especificado",
+      "confianza": 20
+    }
+  ]
+}

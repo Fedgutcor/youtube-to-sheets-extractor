@@ -1,0 +1,15 @@
+# Credenciales y secretos — NUNCA commitear
+*.key
+.groqkey
+.env
+.env.*
+credentials*.json
+
+# Salidas locales / temporales
+*.vtt
+/tmp/
+*.log
+
+# Sistema
+.DS_Store
+node_modules/

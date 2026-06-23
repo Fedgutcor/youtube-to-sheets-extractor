@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workflow Loterias - Visor n8n</title>
+<style>body{margin:0;font-family:system-ui,sans-serif;background:#1a1a24;color:#eee}header{padding:16px 24px;border-bottom:1px solid #333}header h1{margin:0;font-size:18px}header p{margin:4px 0 0;font-size:13px;color:#9aa}.wrap{height:calc(100vh - 78px)}n8n-demo{display:block;height:100%}</style>
+</head><body>
+<header><h1>Extractor de Loterias (YouTube -> LLM -> Auditor -> Sheets)</h1>
+<p>Diagrama de solo lectura. Render: componente oficial &lt;n8n-demo&gt;.</p></header>
+<div class="wrap"><n8n-demo frame="true" tidyup="true"></n8n-demo></div>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@n8n_io/n8n-demo-component/n8n-demo.bundled.js"></script>
+<script>const workflow = {
+  "name": "Extractor de Loterias (YouTube -> LLM -> Auditor -> Sheets)",
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Disparador Manual",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-160, 320],
+      "parameters": {}
+    },
+    {
+      "id": "config",
+      "name": "Configurar",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [60, 320],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "video_url",
+              "type": "string",
+              "value": "https://www.youtube.com/watch?v=u109SuVRLuo"
+            },
+            {
+              "id": "a2",
+              "name": "provider",
+              "type": "string",
+              "value": "ollama"
+            },
+            {
+              "id": "a3",
+              "name": "sheet_id",
+              "type": "string",
+              "value": "PEGAR_ID_DE_TU_GOOGLE_SHEET"
+            },
+            {
+              "id": "a4",
+              "name": "sheet_name",
+              "type": "string",
+              "value": "Resultados"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ytdlp",
+      "name": "Descargar Transcripcion (yt-dlp)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [300, 320],
+      "parameters": {
+        "command": "=set -e\nURL=\"{{ $json.video_url }}\"\nWORK=$(mktemp -d)\ncd \"$WORK\"\nMETA=$(yt-dlp --no-check-certificates --no-simulate --skip-download --write-auto-subs --sub-langs \"es.*\" --sub-format vtt -o \"%(id)s.%(ext)s\" --print \"%(id)s<<<SEP>>>%(title)s<<<SEP>>>%(description)s\" \"$URL\" 2>/dev/null)\nTRANSCRIPT=$(cat *.vtt 2>/dev/null | sed -E 's/<[^>]+>//g' | sed -E '/-->/d' | sed -E '/^(WEBVTT|Kind:|Language:)/d' | sed '/^[[:space:]]*$/d' | awk '!seen[$0]++' | tr '\\n' ' ')\nprintf '%s<<<SEP>>>%s' \"$META\" \"$TRANSCRIPT\"\ncd /\nrm -rf \"$WORK\""
+      }
+    },
+    {
+      "id": "parse",
+      "name": "Preparar Fuentes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [540, 320],
+      "parameters": {
+        "jsCode": "// El nodo anterior imprime: id<<<SEP>>>titulo<<<SEP>>>descripcion<<<SEP>>>transcripcion\nconst raw = $input.first().json.stdout || \"\";\nconst p = raw.split(\"<<<SEP>>>\");\nreturn [{ json: {\n  video_url: $('Configurar').item.json.video_url,\n  id: (p[0] || \"\").trim(),\n  title: (p[1] || \"\").trim(),\n  description: (p[2] || \"\").trim(),\n  transcript: (p[3] || \"\").trim(),\n  ocr: null\n}}];"
+      }
+    },
+    {
+      "id": "extractor",
+      "name": "Agente Extractor",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.5,
+      "position": [820, 320],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Eres un extractor especializado en resultados de loterias y sorteos colombianos. Tu unica tarea es identificar y estructurar la informacion presente en el contenido recibido.\n\nREGLAS:\n- No inventes informacion. No deduzcas numeros que no aparezcan explicitamente.\n- Si un dato no existe, devuelve null.\n- Si existen varios sorteos en el mismo contenido, devuelve un registro por cada sorteo.\n- Conserva exactamente los numeros detectados. La confianza es un numero entre 0 y 100.\n- El nombre de la loteria se mantiene tal como aparece, pero normaliza a su nombre oficial si reconoces la entidad.\n- Serie, numero adicional, revancha, seco, premio especial o modalidad similar van en observaciones.\n\nIMPORTANTE (numeros hablados): en la transcripcion los numeros suelen venir dispersos y mezclando palabra y digito, uno por linea. Ejemplo real: 'Siete 3 0 8 de la serie 711' significa numero_ganador = 7308 y serie = 711. Normaliza voz a digitos.\n\nPRIORIDAD DE CONFIANZA (mayor a menor): OCR > Transcripcion > Titulo > Descripcion. Si hay conflicto, prioriza la fuente de mayor jerarquia.\n\nENTIDADES A RECONOCER Y NORMALIZAR: Loteria de Medellin, Loteria de Bogota, Loteria del Valle, Loteria de Boyaca, Loteria de Cundinamarca, Loteria del Tolima, Loteria de Santander, Loteria del Quindio, Loteria de Cruz Roja, Loteria de Risaralda, Antioquenita Dia, Antioquenita Tarde, Chontico Dia, Chontico Noche, Cafeterito, Dorado Manana, Dorado Tarde, Sinuano Dia, Sinuano Noche, Motilon, Caribena Dia, Caribena Noche, Pick 3, Pick 4, Astro Sol, Astro Luna. Normaliza el nombre oficial aunque el titulo use una forma corta (ej. 'Extra de Medellin' o 'Extra' = 'Loteria de Medellin'). La loteria es el JUEGO sorteado (Paisita, Quinta, Suertudo, Chontico, Pick 3, Cafeterito...), NO la entidad que lo autoriza o auspicia: si dice 'Paisita autorizado por la Loteria de Medellin', la loteria es 'Paisita' y el autorizador va en observaciones.\n\nGRANULARIDAD (IMPORTANTE): devuelve UN registro por cada premio individual con numero propio. En un sorteo con varios premios (premio mayor, superseco, cada seco numerado) cada premio es un registro separado con su numero_ganador, su serie y su premio. En un video con varios juegos (Quinta, Suertudo, Pick 3, Pick 4...) cada juego es un registro. Usa el campo 'premio' para identificar cual es (ej. 'Premio mayor 25000 millones', 'Seco 1 de 500 millones', 'Superseco 2000 millones', 'Seco 14 de 10 millones'). No agrupes premios distintos en un solo registro ni mezcles el numero de un premio con la serie de otro.\n\nCALIBRACION DE CONFIANZA: usa confianza > 80 SOLO si el numero completo fue dictado claramente digito por digito Y la serie es explicita. Si el numero parece incompleto, cortado o ambiguo en la transcripcion, pon confianza < 60 y explica en observaciones. Si un campo no aparece, null (no lo inventes). Nunca pongas 100 salvo certeza total.\n\nDATOS DEL VIDEO:\nTITULO: {{ $json.title }}\nDESCRIPCION: {{ $json.description }}\nTRANSCRIPCION: {{ $json.transcript }}\nOCR: {{ $json.ocr }}\n\nAnaliza todas las fuentes simultaneamente y devuelve el resultado estructurado.",
+        "hasOutputParser": true
+      }
+    },
+    {
+      "id": "auditor",
+      "name": "Agente Auditor",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.5,
+      "position": [1160, 320],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Eres un auditor de extraccion de loterias. Recibes una extraccion ya hecha y debes verificarla contra las fuentes originales y corregir lo que este mal.\n\nEXTRACCION A VERIFICAR (JSON):\n{{ JSON.stringify($json.output) }}\n\nFUENTES ORIGINALES:\nTITULO: {{ $('Preparar Fuentes').item.json.title }}\nDESCRIPCION: {{ $('Preparar Fuentes').item.json.description }}\nTRANSCRIPCION: {{ $('Preparar Fuentes').item.json.transcript }}\n\nVERIFICA:\n1. Que cada numero_ganador exista realmente en las fuentes (no inventado) y este completo.\n2. Que el numero_ganador y la serie de cada registro pertenezcan AL MISMO premio (no cruzados de premios distintos). Si la serie no corresponde a ese numero, ponla en null.\n3. Que la loteria este normalizada a su nombre oficial y aparezca en alguna fuente.\n4. Que la fecha sea correcta segun el titulo o la transcripcion.\n5. Que haya UN registro por cada premio individual mencionado (premio mayor, superseco, cada seco numerado, cada juego). Si faltan premios que si estan en la transcripcion, agregalos. Si hay registros duplicados o inventados, eliminalos.\n\nCorrige los errores. Si un dato no es verificable, null. Aplica calibracion estricta: confianza > 80 solo con numero completo y serie explicita; si hay cualquier ambiguedad, baja la confianza por debajo de 60. Devuelve unicamente el JSON con el mismo esquema (clave 'sorteos').",
+        "hasOutputParser": true
+      }
+    },
+    {
+      "id": "ollama",
+      "name": "Ollama (alternativa local)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [900, 600],
+      "parameters": {
+        "model": "qwen2.5:7b",
+        "options": {
+          "temperature": 0
+        }
+      }
+    },
+    {
+      "id": "groq",
+      "name": "Groq (principal)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [1120, 600],
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "temperature": 0
+        }
+      }
+    },
+    {
+      "id": "gemini",
+      "name": "Gemini (alternativa / fallback)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [1340, 600],
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash",
+        "options": {
+          "temperature": 0
+        }
+      }
+    },
+    {
+      "id": "schema",
+      "name": "Esquema de Salida",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [1000, 460],
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"sorteos\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"loteria\": { \"type\": [\"string\", \"null\"] },\n          \"fecha\": { \"type\": [\"string\", \"null\"] },\n          \"numero_ganador\": { \"type\": [\"string\", \"null\"] },\n          \"serie\": { \"type\": [\"string\", \"null\"] },\n          \"premio\": { \"type\": [\"string\", \"null\"] },\n          \"pais\": { \"type\": [\"string\", \"null\"] },\n          \"observaciones\": { \"type\": [\"string\", \"null\"] },\n          \"confianza\": { \"type\": \"number\" }\n        },\n        \"required\": [\"loteria\", \"fecha\", \"numero_ganador\", \"serie\", \"premio\", \"pais\", \"observaciones\", \"confianza\"]\n      }\n    }\n  },\n  \"required\": [\"sorteos\"]\n}"
+      }
+    },
+    {
+      "id": "expand",
+      "name": "Expandir Sorteos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 320],
+      "parameters": {
+        "jsCode": "// El auditor devuelve { sorteos: [...] } en $json.output\nconst out = ($input.first().json.output) || { sorteos: [] };\nconst src = $('Preparar Fuentes').item.json;\nconst stamp = new Date().toISOString();\nreturn (out.sorteos || []).map(s => ({ json: {\n  procesado_en: stamp,\n  video_url: src.video_url,\n  video_id: src.id,\n  titulo_video: src.title,\n  loteria: s.loteria ?? null,\n  fecha: s.fecha ?? null,\n  numero_ganador: s.numero_ganador ?? null,\n  serie: s.serie ?? null,\n  premio: s.premio ?? null,\n  pais: s.pais ?? null,\n  observaciones: s.observaciones ?? null,\n  confianza: s.confianza ?? 0\n}}));"
+      }
+    },
+    {
+      "id": "sheets",
+      "name": "Guardar en Hoja",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1700, 320],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Configurar').item.json.sheet_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $('Configurar').item.json.sheet_name }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": []
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "note1",
+      "name": "Nota Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [280, 100],
+      "parameters": {
+        "width": 320,
+        "height": 180,
+        "content": "## Requisito del contenedor\nEste nodo corre `yt-dlp` dentro del contenedor de n8n.\nInstala en el contenedor (ver GUIA_CLASE.md):\n`apk add ffmpeg python3 py3-pip` + `pip install yt-dlp`\nSolo funciona en n8n self-hosted, NO en n8n Cloud."
+      }
+    },
+    {
+      "id": "note2",
+      "name": "Nota Proveedor",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [880, 760],
+      "parameters": {
+        "width": 520,
+        "height": 200,
+        "content": "## Eleccion de modelo (Groq / Ollama / Gemini)\nPor defecto **Groq (llama-3.3-70b)** alimenta al Extractor y al Auditor: rapido (~13s en el caso dificil) y preciso. Requiere API key de Groq en el nodo.\n\n**Para usar Ollama local** (gratis/privado, pero mas lento y necesita modelo 7b+): arrastra la salida de 'Ollama (alternativa local)' al conector inferior del Extractor y del Auditor. Modelos chicos (3b) fallan: no separan registros y alucinan.\n\n**Fallback automatico (avanzado):** activa 'Continue On Fail' en el Extractor y conecta su salida de error a una copia con Ollama."
+      }
+    }
+  ],
+  "connections": {
+    "Disparador Manual": {
+      "main": [[{ "node": "Configurar", "type": "main", "index": 0 }]]
+    },
+    "Configurar": {
+      "main": [[{ "node": "Descargar Transcripcion (yt-dlp)", "type": "main", "index": 0 }]]
+    },
+    "Descargar Transcripcion (yt-dlp)": {
+      "main": [[{ "node": "Preparar Fuentes", "type": "main", "index": 0 }]]
+    },
+    "Preparar Fuentes": {
+      "main": [[{ "node": "Agente Extractor", "type": "main", "index": 0 }]]
+    },
+    "Agente Extractor": {
+      "main": [[{ "node": "Agente Auditor", "type": "main", "index": 0 }]]
+    },
+    "Agente Auditor": {
+      "main": [[{ "node": "Expandir Sorteos", "type": "main", "index": 0 }]]
+    },
+    "Expandir Sorteos": {
+      "main": [[{ "node": "Guardar en Hoja", "type": "main", "index": 0 }]]
+    },
+    "Groq (principal)": {
+      "ai_languageModel": [[
+        { "node": "Agente Extractor", "type": "ai_languageModel", "index": 0 },
+        { "node": "Agente Auditor", "type": "ai_languageModel", "index": 0 }
+      ]]
+    },
+    "Esquema de Salida": {
+      "ai_outputParser": [[
+        { "node": "Agente Extractor", "type": "ai_outputParser", "index": 0 },
+        { "node": "Agente Auditor", "type": "ai_outputParser", "index": 0 }
+      ]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
+;customElements.whenDefined("n8n-demo").then(()=>{document.querySelector("n8n-demo").setAttribute("workflow",JSON.stringify(workflow));});</script>
+</body></html>
