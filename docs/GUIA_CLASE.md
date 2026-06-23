@@ -97,23 +97,23 @@ NODE_FUNCTION_ALLOW_EXTERNAL=*
 
 ---
 
-## Paso 4 — La Google Sheet (ya creada)
+## Paso 4 — Preparar la Google Sheet
 
-La hoja **ya está creada** en el Drive del proyecto, con los 12 encabezados en la fila 1, y su ID **ya está cableado** en el nodo **Configurar** (`sheet_id`):
-
-- **Hoja:** `Extracciones Loterias - n8n`
-- **ID:** `1eHakccWtAZgltFHuFGQf0D6as3Xde9TtSz65wWNcWpQ`
-- **Pestaña:** el nodo la referencia por `gid 0` (la primera), así que no depende del nombre del tab.
-
-Encabezados (fila 1):
+1. Creá una hoja de cálculo en Google Sheets con **estos 12 encabezados en la fila 1**:
 
 ```
 procesado_en | video_url | video_id | titulo_video | loteria | fecha | numero_ganador | serie | premio | pais | observaciones | confianza
 ```
 
-> **Lo único que falta de tu lado:** en el nodo **Guardar en Hoja**, conectá la credencial **Google Sheets OAuth2** con la **misma cuenta dueña de la hoja** (`fedgutcor@gmail.com`). Al ser la dueña, ya tiene permiso de escritura — no hay que compartir nada.
+2. Copiá el **ID** de la hoja —lo que va entre `/d/` y `/edit` en la URL— y pegalo en el nodo **Configurar** → campo `sheet_id` (reemplazá `PEGA_AQUI_EL_ID_DE_TU_GOOGLE_SHEET`).
+
+3. La pestaña la toma por `gid 0` (la primera), así que no importa cómo se llame el tab.
+
+> **Las dos capas de credencial (no las confundas):**
+> - **`sheet_id`** dice *qué* hoja → lo pegás en el nodo Configurar (paso 2).
+> - **OAuth** da *permiso* para escribir → en el nodo **Guardar en Hoja**, *Create New Credential* → **Google Sheets OAuth2**, e iniciá sesión con la cuenta **dueña de la hoja**. Al ser la dueña, ya tiene permiso — no hay que compartir nada.
 >
-> Para usar **otra** hoja: cambiá `sheet_id` en **Configurar** por el ID de la tuya (lo que va entre `/d/` y `/edit` en la URL).
+> n8n no puede escribir en la hoja hasta que conectes ese OAuth, aunque el `sheet_id` esté bien.
 
 ---
 

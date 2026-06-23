@@ -13,3 +13,7 @@ credentials*.json
 # Sistema
 .DS_Store
 node_modules/
+
+# Config local con recursos personales
+*.local.md
+*.local.txt
