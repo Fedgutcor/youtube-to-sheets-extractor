@@ -74,9 +74,15 @@ Videos de prueba y salidas verificadas: ver [`docs/GUIA_CLASE.md`](docs/GUIA_CLA
 
 ## Inicio rápido
 
-1. **n8n self-hosted** con `yt-dlp` instalado → [`docker/Dockerfile`](docker/Dockerfile).
-2. **Importar** [`workflow/loterias_v1.json`](workflow/loterias_v1.json) en n8n.
-3. **Conectar credenciales** (Groq + Google Sheets OAuth) → [`docs/GUIA_CLASE.md`](docs/GUIA_CLASE.md#paso-3--configurar-credenciales).
+Elegí dónde correrlo (la guía te lleva paso a paso):
+
+- 🖥️ **Local (recomendado)** → [`docs/SETUP_LOCAL.md`](docs/SETUP_LOCAL.md) — `yt-dlp` nativo, gratis. Requiere **n8n 1.70+** (versiones viejas no reconocen el nodo de Groq).
+- ☁️ **n8n Cloud** → [`docs/SETUP_CLOUD.md`](docs/SETUP_CLOUD.md) — Cloud **no puede correr `yt-dlp`**; hay que usar una API de transcripción externa. Más frágil.
+
+Resumen del flujo, una vez levantado n8n:
+1. **Importar** [`workflow/loterias_v1.json`](workflow/loterias_v1.json) (menú ⋮ → Import from File).
+2. **Conectar Groq** (API key) y **Google Sheets OAuth**.
+3. **Pegar tu `sheet_id`** en el nodo *Configurar*.
 4. **Ejecutar** con una URL de prueba.
 
 Para **ver el diagrama sin n8n**, abrí [`visor_workflow.html`](visor_workflow.html) en el navegador.
@@ -102,8 +108,10 @@ El resto —descarga de transcripción, los dos agentes, el guardado— no se to
 | Documento | Para qué |
 |---|---|
 | [`docs/TUTORIAL.md`](docs/TUTORIAL.md) | **Paso a paso del ejercicio** para desarrollar en vivo. Empezá acá. |
-| [`docs/GUIA_CLASE.md`](docs/GUIA_CLASE.md) | Setup detallado: contenedor, credenciales, prueba. |
-| [`docs/GOTCHAS.md`](docs/GOTCHAS.md) | Los bugs que encontramos y cómo se resuelven. La parte más valiosa. |
+| [`docs/SETUP_LOCAL.md`](docs/SETUP_LOCAL.md) | Instalar y correr n8n local en macOS (con todos los gotchas de instalación). |
+| [`docs/SETUP_CLOUD.md`](docs/SETUP_CLOUD.md) | Correr en n8n Cloud y por qué necesita una API de transcripción. |
+| [`docs/GUIA_CLASE.md`](docs/GUIA_CLASE.md) | Setup detallado: credenciales, hoja, prueba. |
+| [`docs/GOTCHAS.md`](docs/GOTCHAS.md) | Los 10 bugs que encontramos y cómo se resuelven. La parte más valiosa. |
 | [`docs/PROMPT_NOTEBOOKLM_PPT.md`](docs/PROMPT_NOTEBOOKLM_PPT.md) | Prompt para generar la presentación con NotebookLM. |
 
 ---

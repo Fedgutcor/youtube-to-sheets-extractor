@@ -125,3 +125,47 @@ Solo se aplica a los **identificadores** (`numero_ganador`, `serie`). `confianza
 **Alternativa (sin tocar el flujo):** formatear las columnas `numero_ganador` y `serie` como **Formato → Número → Texto sin formato** en la hoja. Funciona, pero hay que acordarse de hacerlo en cada hoja nueva; el apóstrofo viaja con el dato.
 
 > **La lección:** este bug **no** estaba en la IA ni en la transcripción — estaba en el **destino**. Verificar de punta a punta significa mirar también dónde aterrizan los datos, no solo de dónde salen. Apareció únicamente porque corrimos el flujo completo y miramos la hoja final.
+
+---
+
+## 9. n8n viejo: "This node is not currently installed"
+
+**Síntoma:** al importar el workflow en un n8n viejo (ej. 1.50), nodos como *Agente Extractor*, *Agente Auditor* o *Guardar en Hoja* muestran **"This node is not currently installed. It is either from a newer version of n8n..."** y al ejecutar tira `Cannot read properties of undefined (reading 'description')`.
+
+**Causa:** el workflow usa nodos modernos (Groq Chat Model, Google Sheets v4.5, Basic LLM Chain v1.5) que un n8n viejo no tiene. n8n no encuentra la "descripción" del tipo de nodo y se cae.
+
+**Solución:** actualizar n8n. Con **Node 20**, la versión sweet-spot es **n8n 1.70** (tiene los nodos modernos y no exige Node 22 como la 2.x):
+```bash
+npm install -g n8n@1.70.0
+```
+
+> **Lección:** un workflow "as code" lleva implícita una **versión mínima** del runtime. Si compartís el JSON, documentá qué versión de n8n necesita — igual que un `package.json` declara engines.
+
+---
+
+## 10. sqlite3 no compila en macOS moderno (Python 3.12+ / clang 17)
+
+**Síntoma:** tras actualizar n8n vía `npm install -g`, no arranca: `There was an error initializing DB` → `SQLite package has not been found installed`. Y al intentar compilarlo:
+- `ModuleNotFoundError: No module named 'distutils'` (Python 3.12+ lo eliminó), o
+- `make: *** Error 2` en `node-addon-api` (incompatibilidad de toolchain).
+
+**Causa:** el `npm install` global no dejó el binario nativo de `sqlite3`, y compilarlo desde fuente falla por el toolchain nuevo del Mac (Python sin distutils, clang demasiado nuevo para el node-gyp viejo).
+
+**Solución (la que funcionó): bajar el binario pre-compilado oficial** y colocarlo a mano, sin compilar nada:
+```bash
+# 1) Ver el asset correcto para tu arch (darwin-x64, napi-v6):
+curl -s https://api.github.com/repos/TryGhost/node-sqlite3/releases/tags/v5.1.7 \
+  | grep browser_download_url | grep darwin
+
+# 2) Bajar y extraer en el sqlite3 de n8n:
+curl -sL -o /tmp/sq3.tar.gz \
+  https://github.com/TryGhost/node-sqlite3/releases/download/v5.1.7/sqlite3-v5.1.7-napi-v6-darwin-x64.tar.gz
+cd "$(npm root -g)/n8n/node_modules/sqlite3"   # o la ruta donde esté n8n
+tar xzf /tmp/sq3.tar.gz    # crea build/Release/node_sqlite3.node
+
+# 3) Verificar:
+node -e "require('./lib/sqlite3.js'); console.log('OK')"
+```
+Ajustá `darwin-x64` → `darwin-arm64` si tu Mac es Apple Silicon, y `napi-v6` según tu Node.
+
+> **Lección:** cuando una dependencia nativa no compila, **no insistas con el compilador** — casi siempre existe un binario pre-compilado oficial. Pelear con node-gyp/Python/clang es un pozo; bajar el `.node` correcto lo resuelve en segundos.
