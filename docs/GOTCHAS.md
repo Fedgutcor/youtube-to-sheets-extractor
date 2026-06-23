@@ -101,3 +101,27 @@ yt-dlp --no-simulate --write-subs --write-auto-subs --sub-langs "es.*" URL
 Tras el fix: `serie: null` correcto en ambos, y `observaciones: "Signo: Aries"` capturado.
 
 > **La lección completa:** esto **no** lo atrapás mirando el JSON —se ve perfecto—. Solo aparece al contrastar contra la fuente. Un modelo grande no te salva de verificar; solo hace los errores más convincentes. Esto es, literalmente, por qué existe el agente auditor. **Marco Aurelio no confía en que el cortesano sea elocuente; confía en lo que puede verificar.**
+
+---
+
+## 8. Google Sheets se come los ceros a la izquierda
+
+**Síntoma:** corrimos el pipeline de verdad y guardamos las filas. Al revisar la hoja, el número `0623` de Cundinamarca aparecía como **`623`**, y la serie `06` como **`6`**.
+
+**Causa:** Google Sheets interpreta una columna con valores numéricos como **números**, y un número no tiene ceros a la izquierda. Pero en loterías **el cero importa**: `0623` ≠ `623`. El dato se corrompe en silencio.
+
+**Solución (la que se aplicó):** anteponer un **apóstrofo** (`'`) al valor. Google Sheets lee el `'` como "tratá esto como texto", preserva el cero, y **no muestra el apóstrofo**. En el nodo *Expandir Sorteos*:
+
+```js
+// Apóstrofo inicial => Sheets lo trata como texto y conserva el 0 inicial
+const asText = (v) => (v == null || v === '') ? null : "'" + v;
+...
+numero_ganador: asText(s.numero_ganador),
+serie: asText(s.serie),
+```
+
+Solo se aplica a los **identificadores** (`numero_ganador`, `serie`). `confianza` se deja numérica para poder ordenar y filtrar.
+
+**Alternativa (sin tocar el flujo):** formatear las columnas `numero_ganador` y `serie` como **Formato → Número → Texto sin formato** en la hoja. Funciona, pero hay que acordarse de hacerlo en cada hoja nueva; el apóstrofo viaja con el dato.
+
+> **La lección:** este bug **no** estaba en la IA ni en la transcripción — estaba en el **destino**. Verificar de punta a punta significa mirar también dónde aterrizan los datos, no solo de dónde salen. Apareció únicamente porque corrimos el flujo completo y miramos la hoja final.

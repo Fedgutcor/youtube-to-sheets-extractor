@@ -148,7 +148,7 @@
       "typeVersion": 2,
       "position": [1440, 320],
       "parameters": {
-        "jsCode": "// El auditor devuelve { sorteos: [...] } en $json.output\nconst out = ($input.first().json.output) || { sorteos: [] };\nconst src = $('Preparar Fuentes').item.json;\nconst stamp = new Date().toISOString();\nreturn (out.sorteos || []).map(s => ({ json: {\n  procesado_en: stamp,\n  video_url: src.video_url,\n  video_id: src.id,\n  titulo_video: src.title,\n  loteria: s.loteria ?? null,\n  fecha: s.fecha ?? null,\n  numero_ganador: s.numero_ganador ?? null,\n  serie: s.serie ?? null,\n  premio: s.premio ?? null,\n  pais: s.pais ?? null,\n  observaciones: s.observaciones ?? null,\n  confianza: s.confianza ?? 0\n}}));"
+        "jsCode": "// El auditor devuelve { sorteos: [...] } en $json.output\nconst out = ($input.first().json.output) || { sorteos: [] };\nconst src = $('Preparar Fuentes').item.json;\nconst stamp = new Date().toISOString();\n// Apostrofo inicial: fuerza a Google Sheets a tratar el valor como TEXTO\n// y preservar los ceros a la izquierda (0623 no se convierte en 623).\nconst asText = (v) => (v === null || v === undefined || v === '') ? null : \"'\" + v;\nreturn (out.sorteos || []).map(s => ({ json: {\n  procesado_en: stamp,\n  video_url: src.video_url,\n  video_id: src.id,\n  titulo_video: src.title,\n  loteria: s.loteria ?? null,\n  fecha: s.fecha ?? null,\n  numero_ganador: asText(s.numero_ganador),\n  serie: asText(s.serie),\n  premio: s.premio ?? null,\n  pais: s.pais ?? null,\n  observaciones: s.observaciones ?? null,\n  confianza: s.confianza ?? 0\n}}));"
       }
     },
     {

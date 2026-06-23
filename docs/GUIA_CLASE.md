@@ -131,6 +131,8 @@ procesado_en | video_url | video_id | titulo_video | loteria | fecha | numero_ga
 > Las salidas reales y verificadas de varios de estos están en [`../examples/salidas_verificadas.json`](../examples/salidas_verificadas.json).
 3. Revisá la salida de cada nodo: en **Preparar Fuentes** vas a ver el `transcript`; en **Agente Auditor**, el JSON final.
 
+> **Ejemplo corrido de verdad:** procesar los 5 videos generó **41 filas** en la hoja (una por premio). El Extra de Medellín solo produjo 35. Así se ve poblada la salida — y fue corriendo el flujo completo donde apareció el [gotcha #8 de los ceros a la izquierda](GOTCHAS.md#8-google-sheets-se-come-los-ceros-a-la-izquierda).
+
 ---
 
 ## Elegir / cambiar el modelo (Groq ↔ Ollama ↔ Gemini)
